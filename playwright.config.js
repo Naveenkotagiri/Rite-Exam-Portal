@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // End-to-end tests run the built app (npm run build first) against a separate database.
-const E2E_DB = process.env.E2E_DATABASE_URL || 'postgres://exam:exam@localhost:5440/exam_e2e';
+const E2E_DB = process.env.E2E_DATABASE_URL || 'postgres://exam:exam@localhost:5432/exam_e2e';
 const PORT = 3100;
 
 export default defineConfig({

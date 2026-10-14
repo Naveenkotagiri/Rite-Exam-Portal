@@ -17,8 +17,6 @@
     "seed": "node scripts/py.mjs -m app.cli seed",
     "create-admin": "node scripts/py.mjs -m app.cli create-admin",
     "migrate": "node scripts/py.mjs -m app.cli migrate",
-    "db:up": "docker compose up -d db",
-    "db:down": "docker compose down",
     "test": "node scripts/py.mjs -m pytest",
     "test:e2e": "playwright test",
     "lint": "node scripts/py.mjs -m ruff check app alembic tests"

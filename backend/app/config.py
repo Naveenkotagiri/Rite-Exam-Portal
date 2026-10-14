@@ -15,8 +15,8 @@ class Settings(BaseSettings):
 
     app_env: str = "development"  # development | test | production
     port: int = 3000
-    database_url: str = "postgres://exam:exam@localhost:5440/exam"
-    test_database_url: str = "postgres://exam:exam@localhost:5440/exam_test"
+    database_url: str = "postgres://exam:exam@localhost:5432/exam"
+    test_database_url: str = "postgres://exam:exam@localhost:5432/exam_test"
     database_ssl: bool = False
     jwt_secret: str = ""
 

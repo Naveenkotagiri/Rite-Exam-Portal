@@ -7,7 +7,7 @@ Online, proctored written tests for Rite's campus drives. Students register with
 | Frontend | React 19, Vite, Rite Design System (Poppins, Lucide icons) |
 | Backend | Python 3.12+, FastAPI, asyncpg; SQLAlchemy models + Alembic migrations |
 | Database | PostgreSQL 16 |
-| Hosting | Docker on a Linux server (Oracle Cloud), Caddy for HTTPS; see [DEPLOY.md](DEPLOY.md) |
+| Hosting | systemd service on a Linux server (Oracle Cloud) behind nginx (HTTPS); see [DEPLOY.md](DEPLOY.md) |
 
 ## What it does
 
@@ -42,13 +42,20 @@ Online, proctored written tests for Rite's campus drives. Students register with
 
 ## Run it locally
 
-Needs Node.js 22+, Python 3.12+ and Docker.
+Needs Node.js 22+, Python 3.12+ and PostgreSQL 16 running on this machine (port 5432).
+
+Create the database user and databases once (`psql -U postgres`):
+```sql
+CREATE USER exam WITH PASSWORD 'exam';
+CREATE DATABASE exam OWNER exam;
+CREATE DATABASE exam_test OWNER exam;   -- for npm test
+CREATE DATABASE exam_e2e OWNER exam;    -- for npm run test:e2e
+```
 
 ```bash
 npm install                 # frontend packages
 npm run setup:backend       # creates backend/.venv and installs Python packages
 cp .env.example .env        # Windows: copy .env.example .env
-npm run db:up               # PostgreSQL in Docker on port 5440
 npm run seed                # optional: the sample IBS paper + a demo drive
 npm run dev                 # API on :3000 (auto-reload), website on http://localhost:5173
 ```
@@ -58,7 +65,7 @@ Open:
 - **Demo test:** http://localhost:5173/d/ibs-demo
 - **API documentation (development only):** http://localhost:3000/api/docs
 
-To run the production build locally, use `npm run build && npm start` and open http://localhost:3000. Or run the whole production image: `docker compose --profile app up --build`, then open http://localhost:3400.
+To run the production build locally, use `npm run build && npm start` and open http://localhost:3000.
 
 ## Tests
 
@@ -98,7 +105,7 @@ backend/                  Python backend
   tests/                  pytest API tests
 client/src/               React website (student/ and admin/ screens, rite/ design tokens)
 shared/validation.js      registration rules used by the browser (mirrors backend/app/core/validation.py)
-deploy/                   production Docker Compose, Caddy (HTTPS), backups
+deploy/                   production: systemd service, nginx site, update and backup scripts
 test/e2e/                 Playwright browser tests
 old/                      the previous Node.js backend and Azure files (unused; safe to delete)
 ```

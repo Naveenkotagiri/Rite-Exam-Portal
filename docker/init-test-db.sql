@@ -1,2 +1,0 @@
-CREATE DATABASE exam_test;
-CREATE DATABASE exam_e2e;
