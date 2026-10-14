@@ -1,0 +1,13 @@
+# HTTPS for the portal. Caddy gets and renews a free Let's Encrypt certificate for {$DOMAIN}
+# automatically (the domain's DNS must point at this server, and ports 80 and 443 must be open).
+#
+# Using a certificate from your IT team instead? Put the files in deploy/certs/, mount that folder
+# into the caddy service (- ./certs:/certs:ro) and add this line inside the block below:
+#     tls /certs/certificate.pem /certs/private-key.pem
+{$DOMAIN} {
+	encode zstd gzip
+	request_body {
+		max_size 12MB
+	}
+	reverse_proxy app:3000
+}

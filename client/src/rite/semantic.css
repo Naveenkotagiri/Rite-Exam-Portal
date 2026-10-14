@@ -1,0 +1,97 @@
+/* Semantic aliases — components reference these, never the raw ramp. */
+:root{
+  /* Surfaces */
+  --surface-page:#F9F9F9;
+  --surface-card:#FFFFFF;
+  --surface-raised:#FFFFFF;
+  --surface-sunken:#F2F4F3;
+  --surface-subtle:#EAF6F0;
+  --surface-inverse:#06211A;
+  --surface-inverse-alt:#184343;
+  --surface-brand:#006F53;
+  --surface-accent:#3DED97;
+  --surface-overlay:rgba(6,33,26,.55);
+  --surface-glass:rgba(255,255,255,.72);
+
+  /* Text */
+  --text-primary:#1A1A1A;
+  --text-secondary:#4A4A4A;
+  --text-tertiary:#767676;
+  --text-disabled:#9A9A9A;
+  --text-brand:#006F53;
+  --text-on-brand:#FFFFFF;
+  --text-on-inverse:#FFFFFF;
+  --text-on-inverse-muted:#9FB4AD;
+  --text-on-accent:#06211A;
+  --text-link:#006F53;
+  --text-link-hover:#0E3A2C;
+
+  /* Borders */
+  --border-subtle:#E3EAE7;
+  --border-default:#E0E0E0;
+  --border-strong:#CDD9D5;
+  --border-brand:#006F53;
+  --border-inverse:rgba(255,255,255,.14);
+  --border-focus:#006F53;
+
+  /* Interaction — brand green darkens on hover, deepens on press */
+  --interactive-brand:#006F53;
+  --interactive-brand-hover:#0E3A2C;
+  --interactive-brand-active:#06211A;
+  --interactive-neutral-hover:#F2F4F3;
+  --interactive-neutral-active:#E3EAE7;
+  --interactive-inverse-hover:rgba(255,255,255,.08);
+  --interactive-inverse-active:rgba(255,255,255,.14);
+  --interactive-disabled-bg:#E3EAE7;
+  --interactive-disabled-text:#9A9A9A;
+
+  /* Status */
+  --status-success:#006F53;
+  --status-success-bg:#EAF6F0;
+  --status-success-text:#0E3A2C;
+  --status-warning:#B88A2E;
+  --status-warning-bg:#FBF3E2;
+  --status-warning-text:#6E5216;
+  --status-danger:#FA5323;
+  --status-danger-bg:#FDEDE8;
+  --status-danger-text:#8F2A0D;
+  --status-info:#333F70;
+  --status-info-bg:#E9ECF7;
+  --status-info-text:#222C52;
+  --status-neutral:#767676;
+  --status-neutral-bg:#F2F4F3;
+  --status-neutral-text:#4A4A4A;
+
+  /* Data viz — brand-first, then support accents */
+  --chart-1:#006F53;
+  --chart-2:#3DED97;
+  --chart-3:#184343;
+  --chart-4:#99ACFF;
+  --chart-5:#9FB4AD;
+  --chart-6:#B88A2E;
+  --chart-grid:#E3EAE7;
+  --chart-track:#EAF6F0;
+}
+
+/* Dark scope — apply .rite-dark to any subtree (app shell, hero band, slide). */
+.rite-dark{
+  --surface-page:#06211A;
+  --surface-card:#0E3A2C;
+  --surface-raised:#184343;
+  --surface-sunken:#06211A;
+  --surface-subtle:rgba(255,255,255,.04);
+  --text-primary:#FFFFFF;
+  --text-secondary:#CDD9D5;
+  --text-tertiary:#9FB4AD;
+  --text-disabled:rgba(255,255,255,.35);
+  --text-brand:#3DED97;
+  --text-link:#3DED97;
+  --text-link-hover:#7FE9C2;
+  --border-subtle:rgba(255,255,255,.10);
+  --border-default:rgba(255,255,255,.14);
+  --border-strong:rgba(255,255,255,.22);
+  --interactive-neutral-hover:rgba(255,255,255,.08);
+  --interactive-neutral-active:rgba(255,255,255,.14);
+  --status-success-bg:rgba(61,237,151,.14);
+  --status-success-text:#3DED97;
+}

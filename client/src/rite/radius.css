@@ -1,0 +1,15 @@
+/* The brand's corner language is generous but never pill-by-default: slide cards
+   round at ~24px, UI cards at 12px, controls at 8px. Pills are reserved for
+   badges, tags and filter chips. */
+:root{
+  --radius-none:0px;
+  --radius-xs:4px;
+  --radius-sm:6px;
+  --radius-md:8px;
+  --radius-lg:12px;
+  --radius-xl:16px;
+  --radius-2xl:24px;
+  --radius-3xl:32px;
+  --radius-pill:999px;
+  --radius-circle:50%;
+}

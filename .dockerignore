@@ -1,0 +1,13 @@
+node_modules
+dist
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+.env
+test-results
+playwright-report
+e2e-screenshots
+old
+*.log
+deploy.zip

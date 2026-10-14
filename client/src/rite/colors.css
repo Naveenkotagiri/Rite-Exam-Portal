@@ -1,0 +1,57 @@
+/* Rite palette — base values.
+   The five named brand colours come verbatim from the brand slide "THE SYSTEM · COLOUR".
+   Everything else is measured from the deck's own fills and text colours. */
+:root{
+  /* ── Brand, named ─────────────────────────────────────────── */
+  --rite-tropical-rainforest:#006F53; /* primary green */
+  --rite-deep-forest:#06211A;         /* near-black green */
+  --rite-signal-mint:#3DED97;         /* accent / signal */
+  --rite-tiber:#184343;               /* deep teal surface */
+  --rite-sage:#9FB4AD;                /* muted grey-green */
+
+  /* ── Green ramp (derived from the named five) ─────────────── */
+  --green-50:#EAF6F0;
+  --green-100:#CDD9D5;
+  --green-200:#9FC9BD;
+  --green-300:#7FCBB4;
+  --green-400:#5FD9A9;
+  --green-500:#26A688;
+  --green-600:#006F53;
+  --green-700:#0E3A2C;
+  --green-800:#184343;
+  --green-900:#06211A;
+
+  /* ── Mint / signal ────────────────────────────────────────── */
+  --mint-300:#7FE9C2;
+  --mint-400:#3DED97;
+  --mint-500:#1FE3B1;
+
+  /* ── Neutrals (deck greys) ────────────────────────────────── */
+  --neutral-0:#FFFFFF;
+  --neutral-25:#F9F9F9;
+  --neutral-50:#F2F4F3;
+  --neutral-100:#E3EAE7;
+  --neutral-200:#E0E0E0;
+  --neutral-300:#CDD9D5;
+  --neutral-400:#9FB4AD;
+  --neutral-500:#9A9A9A;
+  --neutral-600:#767676;
+  --neutral-700:#4A4A4A;
+  --neutral-800:#1A1A1A;
+  --neutral-900:#000000;
+
+  /* ── Support accents (used sparingly, chart + status only) ── */
+  --accent-periwinkle:#99ACFF;
+  --accent-indigo:#333F70;
+  --accent-navy:#0033A0;
+  --accent-steel:#5F63A8;
+  --accent-sky:#D9E8F2;
+  --accent-amber:#B88A2E;
+  --accent-ember:#FA5323;
+  --accent-cyan:#00C4CC;
+
+  /* ── Gradients ────────────────────────────────────────────── */
+  --gradient-loop:linear-gradient(135deg,#0E3A2C 0%,#006F53 45%,#1FE3B1 100%); /* @kind other */
+  --gradient-forest:linear-gradient(160deg,#06211A 0%,#184343 100%); /* @kind other */
+  --gradient-mint-wash:linear-gradient(180deg,#EAF6F0 0%,#FFFFFF 100%); /* @kind other */
+}

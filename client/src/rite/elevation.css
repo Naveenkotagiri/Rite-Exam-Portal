@@ -1,0 +1,16 @@
+/* Shadows are soft, green-tinted and low-contrast — the brand reads calm, not glossy.
+   Never a pure-black shadow; tint with deep forest. */
+:root{
+  --shadow-none:none;
+  --shadow-xs:0 1px 2px rgba(6,33,26,.06);
+  --shadow-sm:0 1px 3px rgba(6,33,26,.08),0 1px 2px rgba(6,33,26,.04);
+  --shadow-md:0 4px 12px rgba(6,33,26,.08);
+  --shadow-lg:0 12px 28px rgba(6,33,26,.10);
+  --shadow-xl:0 24px 56px rgba(6,33,26,.14);
+  --shadow-inset:inset 0 1px 0 rgba(255,255,255,.6);
+
+  /* Focus ring — mint on dark, rainforest on light */
+  --ring-focus:0 0 0 3px rgba(0,111,83,.25);
+  --ring-focus-dark:0 0 0 3px rgba(61,237,151,.35);
+  --ring-danger:0 0 0 3px rgba(250,83,35,.22);
+}
