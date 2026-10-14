@@ -1,28 +1,15 @@
-# Production stack for one Linux server (e.g. an OCI Compute VM):
-#   Caddy (HTTPS on 80/443) → app (FastAPI + website) → PostgreSQL
-# Settings come from deploy/.env (copy .env.prod.example). Run from this folder:
+# Production stack for one Linux server (e.g. an OCI Compute VM).
+# Settings come from deploy/.env (copy .env.prod.example). Run from this folder.
 #
-#   Your own PostgreSQL server (DATABASE_URL set in .env):
+#   Server already has nginx on 80/443 (see deploy/nginx/rite-exam-portal.conf):
 #     docker compose -f docker-compose.prod.yml up -d --build
+#     → the app listens on 127.0.0.1:${APP_PORT} (default 8085) and nginx forwards the portal's domain to it
 #
-#   Or a PostgreSQL container on this server (DB_PASSWORD set in .env, DATABASE_URL left empty):
-#     docker compose -f docker-compose.prod.yml --profile local-db up -d --build
+#   Server with nothing on 80/443: let Caddy handle HTTPS instead of nginx:
+#     docker compose -f docker-compose.prod.yml --profile caddy up -d --build
+#
+#   Add --profile local-db to run PostgreSQL in a container here (when DATABASE_URL is not set).
 services:
-  db:
-    profiles: ["local-db"]
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: exam
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-}
-      POSTGRES_DB: exam
-    volumes:
-      - db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U exam"]
-      interval: 10s
-      retries: 10
-
   app:
     build: ..
     image: rite-exam-portal:latest
@@ -39,8 +26,12 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-4}
+    ports:
+      # Only this server can reach it (nginx); it is not open to the internet.
+      - "127.0.0.1:${APP_PORT:-8085}:3000"
 
   caddy:
+    profiles: ["caddy"]
     image: caddy:2-alpine
     restart: unless-stopped
     depends_on:
@@ -49,11 +40,26 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      DOMAIN: ${DOMAIN:?Set DOMAIN in deploy/.env}
+      DOMAIN: ${DOMAIN:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+
+  db:
+    profiles: ["local-db"]
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: exam
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-}
+      POSTGRES_DB: exam
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U exam"]
+      interval: 10s
+      retries: 10
 
 volumes:
   db-data:
