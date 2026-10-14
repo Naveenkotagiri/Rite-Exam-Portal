@@ -1,11 +1,11 @@
 # Deploying on Oracle Cloud (OCI)
 
-The portal runs as three Docker containers on one Linux server:
+The portal runs as Docker containers on one Linux server, using your PostgreSQL server (or, optionally, a PostgreSQL container on the same server):
 
 ```
 Students / admins ──HTTPS──▶ Caddy (ports 80/443, automatic certificate)
                                └──▶ app: Python (FastAPI) + the React website
-                                       └──▶ PostgreSQL (data on a Docker volume)
+                                       └──▶ PostgreSQL (your database server, or the local-db container)
 ```
 
 You need: an OCI Compute VM, a domain name you control (e.g. `exam.rite.digital`), and SSH access.
@@ -74,7 +74,19 @@ Or copy the folder from this laptop, leaving out `node_modules`, `backend/.venv`
 rsync -av --exclude node_modules --exclude .venv --exclude dist --exclude old ./exam-portal/ user@SERVER:/opt/rite-exam-portal/
 ```
 
-## 6. Settings
+## 6. Database (your PostgreSQL server)
+
+Create a dedicated database and user for the portal (once, as a PostgreSQL admin):
+
+```sql
+CREATE USER rite_exam WITH PASSWORD 'a-strong-password';
+CREATE DATABASE rite_exam OWNER rite_exam;
+```
+
+Make sure the portal server can reach the database on port 5432, and that port 5432 is **not** open to the internet:
+in OCI allow it only from the portal server's IP. The app creates its tables itself on first start.
+
+## 6b. Settings
 
 ```bash
 cd /opt/rite-exam-portal/deploy
@@ -82,8 +94,11 @@ cp .env.prod.example .env
 nano .env
 ```
 
-Fill in `DOMAIN`, `DB_PASSWORD` (`openssl rand -hex 24`), `JWT_SECRET` (`openssl rand -hex 32`),
+Fill in `DOMAIN`, `DATABASE_URL` (`postgres://rite_exam:PASSWORD@DB_HOST:5432/rite_exam`), `JWT_SECRET` (`openssl rand -hex 32`),
 `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Keep this file private.
+
+No database server? Leave `DATABASE_URL` out, set `DB_PASSWORD` and add `--profile local-db` to the start command below:
+a PostgreSQL container then runs on this server.
 
 ## 7. Start
 
@@ -130,7 +145,6 @@ if you need off-server copies. The restore command is at the end of `backup.sh`.
 ## Options
 
 - **Certificate from your IT team** instead of Let's Encrypt: see the comment at the top of `deploy/Caddyfile`.
-- **Managed database** (OCI Database with PostgreSQL) instead of the `db` container: remove the `db` service,
-  set `DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DBNAME` and `DATABASE_SSL=true` on the `app` service.
+- **Managed database** (OCI Database with PostgreSQL): set `DATABASE_URL` to it and `DATABASE_SSL=true`.
 - **Several app servers** behind an OCI Load Balancer: possible later; each server runs the `app` container
   pointing at the same managed database.
