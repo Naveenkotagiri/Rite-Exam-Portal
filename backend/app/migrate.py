@@ -8,7 +8,7 @@ import asyncio
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import text
+from sqlalchemy import make_url, text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -44,7 +44,14 @@ async def _legacy_state() -> str:
 
 def run_migrations() -> None:
     """Synchronous; call from a worker thread (Alembic runs its own event loop)."""
-    state = asyncio.run(_legacy_state())
+    try:
+        state = asyncio.run(_legacy_state())
+    except (TimeoutError, OSError) as err:
+        url = make_url(settings.sqlalchemy_url)
+        raise RuntimeError(
+            f"Cannot connect to the database at {url.host}:{url.port or 5432} ({type(err).__name__}: {err}). "
+            "Check DATABASE_URL, and that this server can reach that host and port."
+        ) from err
     cfg = _alembic_config()
     if state == "legacy-incomplete":
         raise RuntimeError("This database was created by an older Node.js version and is not fully migrated. Run that version once, or restore a newer backup.")

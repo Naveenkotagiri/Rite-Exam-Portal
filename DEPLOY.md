@@ -12,10 +12,11 @@ Browser ──HTTPS──▶ nginx (already on the server, port 443)
                    Portal container (Docker) on 127.0.0.1:8085   ← website + API, one container
                      │
                      ▼
-                   PostgreSQL server 129.213.36.70:5432, database "rite_exam"
+                   PostgreSQL on the same server (127.0.0.1:5432), database "rite_exam"
 ```
 
-- Only **one Docker container** runs: `app`.
+- Only **one Docker container** runs: `app`. It uses the server's own network, so it reaches PostgreSQL at `127.0.0.1`
+  (no database port has to be opened).
 - nginx keeps ports 80/443 and the HTTPS certificate. Other websites on that nginx are not affected.
 - Port 8085 is only reachable from the server itself, not from the internet.
 
@@ -35,10 +36,11 @@ Browser ──HTTPS──▶ nginx (already on the server, port 443)
 |---|---|---|
 | 1 | Linux server on OCI (Oracle Linux 9 or Ubuntu 22.04/24.04, 2+ OCPU, 8 GB RAM) with nginx running | `sudo nginx -v` |
 | 2 | A domain for the portal (e.g. `exam.rite.digital`) with a DNS **A record** pointing to the server's public IP | `nslookup exam.rite.digital` shows the server IP |
-| 3 | Ports 80 and 443 open in OCI (Security List / NSG) | Other nginx sites already work |
+| 3 | Ports 80 and 443 open in OCI (Security List / NSG) and in the server firewall | Step 6.6 |
 | 4 | Port **8085** free on the server | `sudo ss -ltnp \| grep 8085` shows nothing |
-| 5 | Server can reach the database | `nc -zv 129.213.36.70 5432` says succeeded/connected |
-| 6 | The database `rite_exam` exists | DBA runs once on 129.213.36.70: `CREATE DATABASE rite_exam;` |
+| 5 | PostgreSQL is running on this server | `nc -zv 127.0.0.1 5432` says succeeded/connected |
+| 6 | The database `rite_exam` and its user exist | DBA runs once: `CREATE DATABASE rite_exam;` |
+| 7 | PostgreSQL accepts password logins from `127.0.0.1` | In `pg_hba.conf` the `host all all 127.0.0.1/32` line ends with `scram-sha-256` (or `md5`), **not** `ident`. Reload PostgreSQL after a change |
 
 The portal creates its tables by itself on first start.
 
@@ -62,7 +64,7 @@ The user is usually `opc` on Oracle Linux and `ubuntu` on Ubuntu.
 ```bash
 sudo dnf install -y dnf-utils git
 sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
-sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo dnf install -y --allowerasing docker-ce docker-ce-cli containerd.io docker-compose-plugin
 sudo systemctl enable --now docker
 ```
 
@@ -103,7 +105,7 @@ What is in the file (for reference):
 | Setting | Meaning |
 |---|---|
 | `APP_PORT` | Port the portal listens on, on 127.0.0.1 only (default `8085`) |
-| `DATABASE_URL` | `postgres://USER:PASSWORD@129.213.36.70:5432/rite_exam` |
+| `DATABASE_URL` | `postgres://USER:PASSWORD@127.0.0.1:5432/rite_exam`. Use `127.0.0.1`, **not** the server's public IP: the public IP goes out through OCI and is blocked (`TimeoutError` at start-up) |
 | `DATABASE_SSL` | `true` only if the database requires SSL, otherwise `false` |
 | `JWT_SECRET` | Secret for admin logins. Do not change after go-live |
 | `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | First admin account, created on first start |
@@ -156,6 +158,26 @@ sudo setsebool -P httpd_can_network_connect 1
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
+**6.6 Open ports 80 and 443 to the internet** (otherwise the browser shows `ERR_CONNECTION_TIMED_OUT`).
+Two firewalls must allow them: OCI's, and the server's own.
+
+- **OCI Console:** Networking → Virtual Cloud Networks → the server's VCN → Security Lists (or the Network Security Group on the
+  server's VNIC) → **Add Ingress Rules**, one per port:
+  Source CIDR `0.0.0.0/0`, IP Protocol `TCP`, Destination Port `80`; and the same for `443`.
+- **On the server:**
+  ```bash
+  # Oracle Linux / RHEL (firewalld)
+  sudo firewall-cmd --permanent --add-service=http --add-service=https && sudo firewall-cmd --reload
+
+  # Ubuntu on OCI (iptables)
+  sudo iptables -I INPUT 5 -p tcp -m multiport --dports 80,443 -m state --state NEW -j ACCEPT
+  sudo netfilter-persistent save
+  ```
+
+Open **only** 80 and 443. Do **not** open 8085 (the portal) or 5432 (the database) to the internet.
+
+Check from **your own computer** (not the server), e.g. in PowerShell: `Test-NetConnection <domain> -Port 443` must show `TcpTestSucceeded : True`.
+
 ### Step 7 – Check it works
 
 | Open in a browser | Expected |
@@ -197,7 +219,12 @@ Run inside `/opt/rite-exam-portal/deploy`:
 | Problem | What to do |
 |---|---|
 | curl in Step 5 fails / `app` keeps restarting | `docker compose -f docker-compose.prod.yml logs app`. Usually a wrong `DATABASE_URL`, the `rite_exam` database is missing, or port 5432 is not reachable |
-| "port is already allocated" when starting | Port 8085 is taken. Change `APP_PORT` in `.env` and `proxy_pass` in the nginx file to a free port |
+| App log: `TimeoutError` or "Cannot connect to the database" | `DATABASE_URL` must use `127.0.0.1`, not the public IP. Check `nc -zv 127.0.0.1 5432` on the server |
+| App log: `Ident authentication failed` / `password authentication failed` | Fix the `127.0.0.1/32` line in `pg_hba.conf` (checklist item 7), or the user/password in `DATABASE_URL` |
+| `depends_on ... required` / "Additional property required is not allowed" | Docker Compose is too old. `docker compose version` must be 2.20 or newer: install `docker-compose-plugin` again (Step 2) |
+| `nginx -t`: `cannot load certificate ... /etc/letsencrypt/...` | The certificate does not exist yet. Follow Step 6.3 (comment out the `listen 443` block, then run certbot) |
+| App log: "address already in use" | Port 8085 is taken. Change `APP_PORT` in `.env` and `proxy_pass` in the nginx file to a free port |
+| `ERR_CONNECTION_TIMED_OUT` in the browser | Ports 80/443 are blocked. Do Step 6.6 (OCI ingress rules **and** server firewall) |
 | "502 Bad Gateway" | The portal is down (check Step 5 curl) or, on Oracle Linux, run Step 6.4 |
 | The site does not open | `nslookup <domain>` must show this server's IP; check the nginx file has the right domain; `sudo nginx -t` |
 | Certificate warning in the browser | Wrong certificate paths in the nginx file, or rerun `sudo certbot --nginx -d <domain>` |
