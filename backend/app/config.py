@@ -1,5 +1,6 @@
-"""Settings, read from environment variables (and the project's .env file in development)."""
+"""Settings, read from environment variables and backend/.env."""
 
+import os
 from functools import cached_property
 from pathlib import Path
 
@@ -7,11 +8,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 PROJECT_DIR = BACKEND_DIR.parent
-DIST_DIR = PROJECT_DIR / "dist"
+# The built website, served by the backend when it runs on its own (development, tests). In production nginx
+# serves frontend/dist itself, and this folder may not exist.
+DIST_DIR = PROJECT_DIR / "frontend" / "dist"
+ENV_FILE = BACKEND_DIR / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=PROJECT_DIR / ".env", extra="ignore")
+    # In production systemd passes backend/.env to the process; the service user cannot (and need not) read the
+    # file itself, so it is only read here when readable.
+    model_config = SettingsConfigDict(env_file=ENV_FILE if os.access(ENV_FILE, os.R_OK) else None, extra="ignore")
 
     app_env: str = "development"  # development | test | production
     port: int = 3000

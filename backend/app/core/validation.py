@@ -1,4 +1,4 @@
-"""Student registration rules. Kept identical to shared/validation.js, which the browser form uses."""
+"""Student registration rules. Kept identical to frontend/src/shared/validation.js, which the browser form uses."""
 
 import re
 from typing import Any

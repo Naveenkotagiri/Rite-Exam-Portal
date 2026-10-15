@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { studentApi } from '../api.js';
 import { Alert, Eyebrow, Field, fmtDate, fmtDateTime } from '../ui.jsx';
-import { STUDENT_FIELDS, normalizeStudent, validateStudent } from '../../../shared/validation.js';
+import { STUDENT_FIELDS, normalizeStudent, validateStudent } from '../shared/validation.js';
 
 const EMPTY = Object.fromEntries(STUDENT_FIELDS.map((f) => [f.name, '']));
 

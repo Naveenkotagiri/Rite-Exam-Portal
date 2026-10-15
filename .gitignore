@@ -1,8 +1,8 @@
 node_modules/
 dist/
 .env
-deploy/.env
-deploy/backups/
+backend/deploy/.env
+backend/backups/
 test-results/
 playwright-report/
 e2e-screenshots/

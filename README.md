@@ -7,7 +7,12 @@ Online, proctored written tests for Rite's campus drives. Students register with
 | Frontend | React 19, Vite, Rite Design System (Poppins, Lucide icons) |
 | Backend | Python 3.12+, FastAPI, asyncpg; SQLAlchemy models + Alembic migrations |
 | Database | PostgreSQL 16 |
-| Hosting | systemd service on a Linux server (Oracle Cloud) behind nginx (HTTPS); see [DEPLOY.md](DEPLOY.md) |
+| Hosting | Backend: systemd service on Oracle Cloud. Frontend: static files in the nginx container (HTTPS). See [DEPLOY.md](DEPLOY.md) |
+
+The code is split into two self-contained folders, each with its own README:
+
+- **[frontend/](frontend/README.md)**: the whole website (React source, `package.json`, build config, nginx deploy files)
+- **[backend/](backend/README.md)**: the whole API (Python source, tests, requirements, systemd service, backup)
 
 ## What it does
 
@@ -53,19 +58,21 @@ CREATE DATABASE exam_e2e OWNER exam;    -- for npm run test:e2e
 ```
 
 ```bash
-npm install                 # frontend packages
-npm run setup:backend       # creates backend/.venv and installs Python packages
-cp .env.example .env        # Windows: copy .env.example .env
+npm install                 # developer tools (runs both parts together, browser tests)
+npm run setup               # frontend packages + backend/.venv with the Python packages
+cp backend/.env.example backend/.env    # Windows: copy backend\.env.example backend\.env
 npm run seed                # optional: the sample IBS paper + a demo drive
 npm run dev                 # API on :3000 (auto-reload), website on http://localhost:5173
 ```
 
 Open:
-- **Admin:** http://localhost:5173/admin, using `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env`.
+- **Admin:** http://localhost:5173/admin, using `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `backend/.env`.
 - **Demo test:** http://localhost:5173/d/ibs-demo
 - **API documentation (development only):** http://localhost:3000/api/docs
 
-To run the production build locally, use `npm run build && npm start` and open http://localhost:3000.
+To run the production build locally, use `npm run build && npm start` and open http://localhost:3000 (the backend serves `frontend/dist` when it runs on its own).
+
+Each part can also be developed on its own: see [frontend/README.md](frontend/README.md) and [backend/README.md](backend/README.md).
 
 ## Tests
 
@@ -78,7 +85,7 @@ npm run test:e2e     # 17 browser tests (Playwright): student + admin flows, fak
 
 A 100-student rehearsal of a live drive (rule breakers, time-ups, device switches; checks every score and prints response
 times) runs against a running portal: `ADMIN_EMAIL=... ADMIN_PASSWORD=... backend/.venv/bin/python test/load/exam_simulation.py [URL]`.
-See DEPLOY.md, Step 9.
+See [DEPLOY.md](DEPLOY.md).
 
 ## Commands
 
@@ -93,24 +100,11 @@ See DEPLOY.md, Step 9.
 ## Project layout
 
 ```
-backend/                  Python backend
-  app/
-    main.py               app setup: routes, website, start-up tasks
-    config.py             settings from environment variables / .env
-    db.py                 database access (plain SQL on an asyncpg pool)
-    models/               table definitions (SQLAlchemy), used by Alembic
-    api/deps.py           shared request checks: admin login, student session, bodies
-    api/routes/           public, attempt (taking the test), admin_* (auth, exams, drives, attempts)
-    services/             business logic: marking, paper shuffling, Excel, drives, candidates
-    core/                 validation rules, form checks, errors, security, rate limits, headers
-    cli.py                create-admin, seed, migrate
-    server.py             production server (uvicorn)
-  alembic/                database migrations
-  tests/                  pytest API tests
-client/src/               React website (student/ and admin/ screens, rite/ design tokens)
-shared/validation.js      registration rules used by the browser (mirrors backend/app/core/validation.py)
-deploy/                   production: systemd service, nginx site, update and backup scripts
-test/e2e/                 Playwright browser tests
+frontend/                 the website (React + Vite): src/, public/, package.json, deploy/ (nginx site, update.sh)
+backend/                  the API (Python + FastAPI): app/, alembic/, tests/, requirements.txt, deploy/ (service, update.sh, backup.sh)
+DEPLOY.md                 step-by-step server deployment (backend first, then frontend)
+package.json, scripts/    developer tools: run both parts together, set up, test
+test/e2e/                 Playwright browser tests (student + admin flows)
 test/load/                100-student drive simulation (load + rules)
 old/                      the previous Node.js backend and Azure files (unused; safe to delete)
 ```

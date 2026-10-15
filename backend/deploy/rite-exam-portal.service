@@ -1,0 +1,30 @@
+# systemd service for the Rite Exam Portal backend (API). See ../README.md.
+#   sudo install -m 644 /opt/rite-exam-portal/backend/deploy/rite-exam-portal.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now rite-exam-portal
+[Unit]
+Description=Rite Exam Portal backend
+# docker: the API listens on the Docker bridge address (172.17.0.1), and PostgreSQL may run in a container.
+After=network-online.target docker.service postgresql.service postgresql-15.service postgresql-16.service postgresql-17.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rite-exam
+Group=rite-exam
+WorkingDirectory=/opt/rite-exam-portal/backend
+# Settings (database, secrets, HOST, PORT). systemd reads this file as root, so it can stay chmod 600.
+EnvironmentFile=/opt/rite-exam-portal/backend/.env
+# HOST defaults to this server only; HOST in .env (172.17.0.1) overrides it, because EnvironmentFile wins.
+Environment=APP_ENV=production HOST=127.0.0.1 PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/rite-exam-portal/backend/.venv/bin/python -m app.server
+Restart=always
+RestartSec=5
+
+# The backend writes nothing to disk (everything goes to PostgreSQL), so lock the process down.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
