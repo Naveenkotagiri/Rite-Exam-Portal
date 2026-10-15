@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 
 from app import db
 from app.api.deps import current_attempt, json_body, read_body, user_agent
+from app.config import settings
 from app.core.errors import HttpError, bad_request, conflict
 from app.core.forms import to_number
 from app.services.attempts import attempt_state, log_event, require_in_progress
@@ -86,20 +87,30 @@ async def save_answers(body: dict = Depends(json_body), attempt: dict = Depends(
     if not all(qid in on_paper for qid in ids):
         raise bad_request("Unknown question.")
     counts = {r["id"]: r["n"] for r in await db.all("SELECT id, jsonb_array_length(options) AS n FROM questions WHERE id = ANY(CAST(:ids AS int[]))", ids=ids)}
-    clean = []
+    clean: dict[int, dict[str, Any]] = {}  # the last answer per question wins
     for x, qid in zip(items, ids, strict=True):
         raw = x.get("selected")
         sel = None if raw is None else _whole(raw)
         if raw is not None and (sel is None or sel < 0 or sel >= counts.get(qid, 0)):
             raise bad_request("Invalid answer.")
-        clean.append({"qid": qid, "sel": sel, "rev": bool(x.get("review"))})
-    await db.run(
-        """INSERT INTO answers (attempt_id, question_id, selected, marked_review, updated_at)
-           SELECT :id, x.qid, x.sel, x.rev, now() FROM jsonb_to_recordset(CAST(:rows AS jsonb)) AS x(qid int, sel int, rev boolean)
-           ON CONFLICT (attempt_id, question_id)
-           DO UPDATE SET selected = excluded.selected, marked_review = excluded.marked_review, updated_at = now()""",
-        id=a["id"], rows=json.dumps(clean),
-    )
+        clean[qid] = {"qid": qid, "sel": sel, "rev": bool(x.get("review"))}
+    async with db.transaction() as tx:
+        # Re-checked under a lock: a submit or time-up on another worker may have finished since this request began,
+        # and an answer written after marking would show up later (e.g. on re-grade) without having been marked.
+        still_open = await tx.one(
+            """SELECT 1 FROM attempts WHERE id = :id AND status = 'in_progress'
+                  AND now() <= ends_at + make_interval(secs => :grace) FOR SHARE""",
+            id=a["id"], grace=settings.grace_seconds,
+        )
+        if not still_open:
+            raise conflict("Your test has already been submitted.", submitted=True)
+        await tx.run(
+            """INSERT INTO answers (attempt_id, question_id, selected, marked_review, updated_at)
+               SELECT :id, x.qid, x.sel, x.rev, now() FROM jsonb_to_recordset(CAST(:rows AS jsonb)) AS x(qid int, sel int, rev boolean)
+               ON CONFLICT (attempt_id, question_id)
+               DO UPDATE SET selected = excluded.selected, marked_review = excluded.marked_review, updated_at = now()""",
+            id=a["id"], rows=json.dumps(list(clean.values())),
+        )
     return {"saved": len(clean)}
 
 

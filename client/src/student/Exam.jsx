@@ -7,7 +7,7 @@ import CameraPreview from './CameraPreview.jsx';
 import { useProctoring } from './useProctoring.js';
 import { useAnswerSaver } from './useAnswerSaver.js';
 
-const SAVE_LABEL = { saved: 'All answers saved', saving: 'Saving…', offline: 'Offline – will save when connected' };
+const SAVE_LABEL = { saved: 'All answers saved', saving: 'Saving…', offline: 'Offline – reconnect before time runs out so your answers count' };
 const SAVE_ICON = {
   saved: <CircleCheck size={14} aria-hidden="true" />,
   saving: <LoaderCircle size={14} aria-hidden="true" style={{ animation: 'rite-spin .9s linear infinite' }} />,
@@ -70,7 +70,7 @@ export default function Exam({ state, token, onSubmitted, onSessionLost }) {
       if (e.status === 401) return onSessionLost();
       submitted.current = false;
       setSubmitting(false);
-      setSubmitError('Could not submit because the connection dropped. Your answers are safe on this device. Retrying…');
+      setSubmitError('Could not submit because the connection dropped. Retrying… Reconnect now: answers that reach the server after the time is up cannot be counted.');
       setTimeout(() => finish(reason), 4000);
     }
   }, [saver, token, onSubmitted, onSessionLost]);
@@ -93,6 +93,7 @@ export default function Exam({ state, token, onSubmitted, onSessionLost }) {
     token,
     proctoring: drive.proctoring,
     active: !submitting,
+    flushAnswers: saver.flush,
     onViolation: (r) => {
       setViolations(r.violations);
       if (r.submitted) {

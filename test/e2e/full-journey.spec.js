@@ -277,7 +277,7 @@ test('internet drops: answers wait on the device and save when it is back', asyn
 
   await context.setOffline(true);
   await page.locator('.option', { hasText: 'Blue' }).click();
-  await expect(page.locator('.save-status')).toHaveText('Offline – will save when connected', { timeout: 15_000 });
+  await expect(page.locator('.save-status')).toHaveText('Offline – reconnect before time runs out so your answers count', { timeout: 15_000 });
   await shot(page, '33-offline');
   await context.setOffline(false);
   await expect(page.locator('.save-status')).toHaveText('All answers saved', { timeout: 15_000 });
@@ -356,6 +356,8 @@ test('HR publishes results; students check them on the drive link and see no mar
   // Students check: the registration page points to results; the shortlisted one sees next steps, no marks.
   await page.goto(`/d/${drive.code}`);
   await page.getByRole('link', { name: 'Check my result' }).click();
+  // The registration form has a Student ID field too: wait for the result page before typing.
+  await expect(page.getByRole('heading', { name: 'Check my result' })).toBeVisible();
   await page.getByLabel('Student ID').fill(top.studentId.toLowerCase());
   await page.getByLabel('Phone Number').fill(`+91 ${top.phone}`);
   await page.getByRole('button', { name: 'Check result' }).click();

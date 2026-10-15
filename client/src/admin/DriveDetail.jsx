@@ -25,7 +25,8 @@ export default function DriveDetail() {
 
   const toggleOpen = async () => {
     try {
-      setData(await adminApi.post(`/api/admin/drives/${id}/open`, { isOpen: !drive.is_open }));
+      const updated = await adminApi.post(`/api/admin/drives/${id}/open`, { isOpen: !drive.is_open });
+      setData((d) => ({ ...d, ...updated })); // keep the exam details the reply does not include
     } catch (e) {
       setActionError(e.message);
     }
@@ -144,17 +145,17 @@ function LinkTab({ drive }) {
 const REASON_TEXT = { student: 'Student', time_up: 'Time up', violations: 'Auto (left window)', coordinator: 'Coordinator' };
 
 function useAttempts(driveId, intervalMs) {
-  const { data, error, reload } = useLoad(() => adminApi.get(`/api/admin/drives/${driveId}/attempts`), [driveId]);
+  const { data, error, loadedAt, reload } = useLoad(() => adminApi.get(`/api/admin/drives/${driveId}/attempts`), [driveId]);
   useEffect(() => {
     if (!intervalMs) return undefined;
     const iv = setInterval(reload, intervalMs);
     return () => clearInterval(iv);
   }, [reload, intervalMs]);
-  return { data, error, reload };
+  return { data, error, loadedAt, reload };
 }
 
 function MonitorTab({ drive }) {
-  const { data, error, reload } = useAttempts(drive.id, 10_000);
+  const { data, error, loadedAt, reload } = useAttempts(drive.id, 10_000);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(null);
@@ -212,7 +213,7 @@ function MonitorTab({ drive }) {
           <Search size={16} aria-hidden="true" />
           <input placeholder="Search name, Student ID, email or phone" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search candidates" />
         </div>
-        <span className="muted small">Refreshes every 10 seconds · last <span className="mono">{fmtTime(new Date())}</span></span>
+        <span className="muted small">Refreshes every 10 seconds · last updated <span className="mono">{loadedAt ? fmtTime(loadedAt) : '–'}</span></span>
       </div>
       <Alert>{actionError || error}</Alert>
       {pending.length > 0 && (

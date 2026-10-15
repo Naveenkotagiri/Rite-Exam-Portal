@@ -67,7 +67,8 @@ def user_agent(request: Request) -> str:
 
 async def require_admin(request: Request) -> dict[str, Any]:
     admin = read_admin_token(bearer(request))
-    if not admin:
+    # A deleted admin's login stops working at once, not when the token expires.
+    if not admin or not await db.one("SELECT 1 FROM admins WHERE id = :id", id=admin["id"]):
         raise HttpError(401, "Please log in again.")
     return admin
 
@@ -80,6 +81,7 @@ async def current_attempt(request: Request) -> dict[str, Any]:
         raise HttpError(401, "Your session has ended. If you opened the test on another device, continue there, or register again with the same details.")
     if attempt["status"] == "in_progress" and datetime.now(UTC) > attempt["ends_at"] + timedelta(seconds=settings.grace_seconds):
         async with db.transaction() as tx:
-            await finalize_attempt(tx, attempt["id"], "time_up")
-        attempt["status"] = "submitted"
+            await finalize_attempt(tx, attempt["id"], "time_up", only_if_expired=True)
+        # Re-read: either it is submitted now, or a coordinator added time a moment ago.
+        attempt = await db.one("SELECT * FROM attempts WHERE id = :id", id=attempt["id"])
     return attempt

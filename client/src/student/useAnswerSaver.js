@@ -28,7 +28,10 @@ export function useAnswerSaver(token, { onSubmitted, onSessionLost }) {
       await studentApi.saveAnswers(token, batch.map(([qid, v]) => ({ questionId: Number(qid), selected: v.selected ?? null, review: Boolean(v.review) })));
       backup();
     } catch (e) {
-      for (const [k, v] of batch) if (!pending.current.has(k)) pending.current.set(k, v); // keep newer edits
+      // Keep the batch to send again, unless the server rejected it for good (e.g. 400): resending it would
+      // block every later answer.
+      const permanent = e.status >= 400 && e.status < 500 && ![401, 409, 429].includes(e.status);
+      if (!permanent) for (const [k, v] of batch) if (!pending.current.has(k)) pending.current.set(k, v); // keep newer edits
       backup();
       if (e.status === 409 && e.data?.submitted) handlers.current.onSubmitted('server');
       else if (e.status === 401) handlers.current.onSessionLost();
@@ -50,7 +53,7 @@ export function useAnswerSaver(token, { onSubmitted, onSessionLost }) {
     try {
       await inFlight.current;
     } catch (e) {
-      if (e.status === 0 || e.status >= 500) {
+      if (e.status === 0 || e.status === 429 || e.status >= 500) {
         setStatus('offline');
         retryTimer.current = setTimeout(() => flush().catch(() => {}), 3000);
       }

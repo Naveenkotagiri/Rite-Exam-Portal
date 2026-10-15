@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from asyncpg.exceptions import UniqueViolationError
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -57,6 +58,11 @@ def install_error_handlers(app: FastAPI) -> None:
             return JSONResponse({"error": "That record already exists."}, status_code=409)
         log.exception("Database integrity error")
         return JSONResponse({"error": "Something went wrong. Please try again."}, status_code=500)
+
+    @app.exception_handler(UniqueViolationError)
+    async def unique_violation(_: Request, __: UniqueViolationError) -> JSONResponse:
+        # Two requests creating the same record at the same moment (e.g. a double click, or a duplicate name).
+        return JSONResponse({"error": "That record already exists."}, status_code=409)
 
     @app.exception_handler(Exception)
     async def unexpected(_: Request, err: Exception) -> JSONResponse:

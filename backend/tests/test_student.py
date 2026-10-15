@@ -122,7 +122,8 @@ async def test_start_returns_paper_without_answers_and_keeps_passages_together(a
     passage_positions = [i for i, q in enumerate(state["questions"]) if q["passage"]]
     assert passage_positions == [3, 4]
     remaining = datetime.fromisoformat(state["endsAt"]) - datetime.fromisoformat(state["serverNow"])
-    assert 59 * 60 < remaining.total_seconds() <= 60 * 60
+    # endsAt comes from the database clock and serverNow from Python's, so allow a little clock jitter.
+    assert 59 * 60 < remaining.total_seconds() <= 60 * 60 + 1
 
 
 async def test_start_twice_keeps_same_paper(api, exam):

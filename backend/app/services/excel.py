@@ -55,6 +55,13 @@ def _style_header(ws) -> None:
 
 
 def _to_bytes(wb: Workbook) -> bytes:
+    # openpyxl turns any text starting with "=" into a live formula. Values typed by candidates (e.g. an email
+    # like =HYPERLINK(...)) must open in Excel as plain text, never run.
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            for cell in row:
+                if cell.data_type == "f":
+                    cell.data_type = "s"
     out = BytesIO()
     wb.save(out)
     return out.getvalue()
@@ -145,8 +152,8 @@ def parse_questions_workbook(data: bytes) -> tuple[list[dict[str, Any]], list[di
             marks = 1.0 if raw_marks == "" else float(raw_marks)
         except ValueError:
             marks = math.nan
-        if not (0 < marks <= 100):
-            problems.append("Marks must be a number above 0")
+        if not (0.01 <= marks <= 100):
+            problems.append("Marks must be a number from 0.01 to 100")
         passage_title, passage_text = get("Passage Title"), get("Passage Text")
         if passage_text and not passage_title:
             problems.append("Passage Text needs a Passage Title")

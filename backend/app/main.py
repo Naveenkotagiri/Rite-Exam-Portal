@@ -29,8 +29,13 @@ async def ensure_first_admin() -> None:
     if not email or len(password) < 8:
         log.warning("No admin accounts exist. Set ADMIN_EMAIL and ADMIN_PASSWORD (8+ characters), or run: npm run create-admin")
         return
-    await db.run("INSERT INTO admins (name, email, password_hash) VALUES (:n, :e, :h)", n=settings.admin_name, e=email, h=hash_password(password))
-    log.warning("Created first admin account: %s", email)
+    # Every worker process runs this at the same moment on a new database; only one of them creates the account.
+    created = await db.run(
+        "INSERT INTO admins (name, email, password_hash) VALUES (:n, :e, :h) ON CONFLICT (email) DO NOTHING",
+        n=settings.admin_name, e=email, h=hash_password(password),
+    )
+    if created:
+        log.warning("Created first admin account: %s", email)
 
 
 async def sweeper() -> None:
@@ -45,6 +50,7 @@ async def sweeper() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    _ = settings.signing_secret  # stops start-up with a clear error when JWT_SECRET is missing in production
     await asyncio.to_thread(run_migrations)
     await ensure_first_admin()
     task = asyncio.create_task(sweeper())

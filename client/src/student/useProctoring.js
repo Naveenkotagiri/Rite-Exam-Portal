@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { studentApi } from '../api.js';
+import { studentApi, local } from '../api.js';
 import {
   startCamera, cameraLive, getStream, cameraErrorMessage, captureJpeg,
   fullscreenSupported, isFullscreen, enterFullscreen,
@@ -13,7 +13,7 @@ import {
  *  - random-interval camera snapshots
  *  - copy, paste and right-click are blocked
  */
-export function useProctoring({ token, proctoring, active, onViolation }) {
+export function useProctoring({ token, proctoring, active, onViolation, flushAnswers }) {
   const p = proctoring;
   const enforceFs = p.requireFullscreen && fullscreenSupported();
   const [fsNeeded, setFsNeeded] = useState(() => enforceFs && !isFullscreen());
@@ -23,8 +23,73 @@ export function useProctoring({ token, proctoring, active, onViolation }) {
   const ignoreBlurUntil = useRef(0);
   const violationCb = useRef(onViolation);
   violationCb.current = onViolation;
+  const flushRef = useRef(flushAnswers);
+  flushRef.current = flushAnswers;
 
-  const report = useCallback((type, detail = '') => studentApi.event(token, type, detail).catch(() => null), [token]);
+  // Events that could not be sent (no connection) are kept on this device and sent once it is back,
+  // so going offline before switching apps does not hide the switch.
+  const queueKey = `rite_events_${token.slice(0, 16)}`;
+  const report = useCallback(async (type, detail = '') => {
+    try {
+      return await studentApi.event(token, type, detail);
+    } catch (e) {
+      if (e.status === 0 || e.status === 429 || e.status >= 500) {
+        const queued = local.get(queueKey) || [];
+        if (queued.length < 100) local.set(queueKey, [...queued, { type, detail }]);
+      }
+      return null;
+    }
+  }, [token, queueKey]);
+
+  const sendingQueued = useRef(false);
+  const sendQueued = useCallback(async () => {
+    const queued = local.get(queueKey) || [];
+    if (!queued.length || sendingQueued.current) return;
+    sendingQueued.current = true;
+    local.del(queueKey);
+    try {
+      for (const ev of queued) {
+        const r = await report(ev.type, ev.detail);
+        if (r && ev.type === 'left_window') violationCb.current(r);
+        if (r?.submitted) break;
+      }
+    } finally {
+      sendingQueued.current = false;
+    }
+  }, [queueKey, report]);
+
+  useEffect(() => {
+    if (!active) return undefined;
+    const goneOffline = () => report('offline', new Date().toISOString());
+    const backOnline = () => report('online', new Date().toISOString()).then(sendQueued);
+    window.addEventListener('offline', goneOffline);
+    window.addEventListener('online', backOnline);
+    sendQueued();
+    const iv = setInterval(sendQueued, 10_000);
+    return () => {
+      window.removeEventListener('offline', goneOffline);
+      window.removeEventListener('online', backOnline);
+      clearInterval(iv);
+    };
+  }, [active, report, sendQueued]);
+
+  // Keep a phone's screen on during the test: the screen locking by itself would count as leaving the window.
+  useEffect(() => {
+    if (!active || !('wakeLock' in navigator)) return undefined;
+    let lock = null;
+    let stopped = false;
+    const acquire = () => {
+      if (document.hidden || stopped) return;
+      navigator.wakeLock.request('screen').then((l) => { if (stopped) l.release().catch(() => {}); else lock = l; }).catch(() => {});
+    };
+    acquire();
+    document.addEventListener('visibilitychange', acquire);
+    return () => {
+      stopped = true;
+      document.removeEventListener('visibilitychange', acquire);
+      lock?.release().catch(() => {});
+    };
+  }, [active]);
 
   // Leaving the test window
   useEffect(() => {
@@ -33,9 +98,13 @@ export function useProctoring({ token, proctoring, active, onViolation }) {
     let unloading = false;
     const onBeforeUnload = () => { unloading = true; };
     const leave = (why) => {
-      if (unloading || away.current || Date.now() < ignoreBlurUntil.current) return;
+      if (unloading || away.current) return;
+      // The camera permission prompt takes focus from the window, but the page stays visible: only ignore that blur.
+      if (why === 'window_blur' && Date.now() < ignoreBlurUntil.current) return;
       away.current = true;
-      report('left_window', why).then((r) => r && violationCb.current(r));
+      // Save pending answers first: this switch may be the one that submits the test.
+      const saved = Promise.race([Promise.resolve(flushRef.current?.()).catch(() => {}), new Promise((ok) => { setTimeout(ok, 2000); })]);
+      saved.then(() => report('left_window', why)).then((r) => r && violationCb.current(r));
     };
     const back = () => { away.current = false; };
     const onVisibility = () => (document.hidden ? leave('tab_hidden') : back());

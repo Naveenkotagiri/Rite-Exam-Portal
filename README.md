@@ -70,11 +70,15 @@ To run the production build locally, use `npm run build && npm start` and open h
 ## Tests
 
 ```bash
-npm test             # 40 API tests (pytest, uses the exam_test database)
+npm test             # 49 API tests (pytest, uses the exam_test database)
 npm run lint         # ruff
 npm run build
 npm run test:e2e     # 17 browser tests (Playwright): student + admin flows, fake camera, offline, phone
 ```
+
+A 100-student rehearsal of a live drive (rule breakers, time-ups, device switches; checks every score and prints response
+times) runs against a running portal: `ADMIN_EMAIL=... ADMIN_PASSWORD=... backend/.venv/bin/python test/load/exam_simulation.py [URL]`.
+See DEPLOY.md, Step 9.
 
 ## Commands
 
@@ -107,6 +111,7 @@ client/src/               React website (student/ and admin/ screens, rite/ desi
 shared/validation.js      registration rules used by the browser (mirrors backend/app/core/validation.py)
 deploy/                   production: systemd service, nginx site, update and backup scripts
 test/e2e/                 Playwright browser tests
+test/load/                100-student drive simulation (load + rules)
 old/                      the previous Node.js backend and Azure files (unused; safe to delete)
 ```
 

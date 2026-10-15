@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from asyncpg.exceptions import UniqueViolationError
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
@@ -81,6 +82,10 @@ async def register(code: str, request: Request, body: dict = Depends(json_body))
             raise conflict("You have already submitted this test.")
         # Same student on a new device or browser. A fresh token logs out the old device. Once the test has
         # started, this needs a coordinator's one-time approval, so nobody can quietly take over someone's test.
+        if r["status"] == "registered":
+            changed = await db.run("UPDATE attempts SET token_hash = :h WHERE id = :id AND status = 'registered'", h=hash_token(token), id=r["attempt_id"])
+            if not changed:  # the test was started on the other device a moment ago
+                r["status"] = "in_progress"
         if r["status"] == "in_progress":
             changed = await db.run(
                 """UPDATE attempts SET token_hash = :h, relogin_allowed_until = NULL, relogin_requested_at = NULL
@@ -95,8 +100,6 @@ async def register(code: str, request: Request, body: dict = Depends(json_body))
                     "then press Register & Continue again.",
                     reloginPending=True,
                 )
-        else:
-            await db.run("UPDATE attempts SET token_hash = :h WHERE id = :id", h=hash_token(token), id=r["attempt_id"])
         await log_event(r["attempt_id"], "resumed", agent)
         return JSONResponse({"token": token, "resumed": True})
 
@@ -104,12 +107,15 @@ async def register(code: str, request: Request, body: dict = Depends(json_body))
     if status != "open":
         raise HttpError(403, STATUS_MESSAGE[status])
 
-    async with db.transaction() as tx:
-        student_id = await tx.value(
-            """INSERT INTO students (drive_id, first_name, middle_name, last_name, student_code, email, phone, user_agent)
-               VALUES (:drive, :first, :middle, :last, :sid, :email, :phone, :agent) RETURNING id""",
-            drive=d["id"], first=s["firstName"], middle=s["middleName"], last=s["lastName"], sid=s["studentId"],
-            email=s["email"], phone=s["phone"], agent=agent[:500],
-        )
-        await tx.run("INSERT INTO attempts (student_id, token_hash) VALUES (:sid, :h)", sid=student_id, h=hash_token(token))
+    try:
+        async with db.transaction() as tx:
+            student_id = await tx.value(
+                """INSERT INTO students (drive_id, first_name, middle_name, last_name, student_code, email, phone, user_agent)
+                   VALUES (:drive, :first, :middle, :last, :sid, :email, :phone, :agent) RETURNING id""",
+                drive=d["id"], first=s["firstName"], middle=s["middleName"], last=s["lastName"], sid=s["studentId"],
+                email=s["email"], phone=s["phone"], agent=agent[:500],
+            )
+            await tx.run("INSERT INTO attempts (student_id, token_hash) VALUES (:sid, :h)", sid=student_id, h=hash_token(token))
+    except UniqueViolationError as err:  # the same details were registered a moment ago (double click, two tabs)
+        raise conflict("These details were just registered. Press Register & Continue again to continue your test.") from err
     return JSONResponse({"token": token, "resumed": False}, status_code=201)

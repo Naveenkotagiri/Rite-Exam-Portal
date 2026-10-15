@@ -78,6 +78,7 @@ export default function ResultsTab({ drive, onDriveChanged }) {
       ) : (
         <PublishForm
           drive={drive} cutoff={cutoff} setCutoff={setCutoff} submitted={submitted} updating={published}
+          notSubmitted={data.attempts.length - submitted.length} onRefresh={reload}
           onCancel={published ? () => setEditing(false) : null}
           onPublished={async () => { setEditing(false); await Promise.all([onDriveChanged(), reload()]); }}
         />
@@ -148,7 +149,7 @@ export default function ResultsTab({ drive, onDriveChanged }) {
   );
 }
 
-function PublishForm({ drive, cutoff, setCutoff, submitted, updating, onCancel, onPublished }) {
+function PublishForm({ drive, cutoff, setCutoff, submitted, notSubmitted, updating, onRefresh, onCancel, onPublished }) {
   const [nextSteps, setNextSteps] = useState(drive.results_next_steps || '');
   const [other, setOther] = useState(drive.results_other_message || DEFAULT_OTHER);
   const [errors, setErrors] = useState({});
@@ -160,12 +161,14 @@ function PublishForm({ drive, cutoff, setCutoff, submitted, updating, onCancel, 
   const willShortlist = cutoff === '' ? 0 : submitted.filter((a) =>
     (a.result_manual ? a.result_status === 'shortlisted' : pct(a) >= Number(cutoff))).length;
 
-  const check = () => {
+  const check = async () => {
     const e = {};
     if (cutoff === '' || Number(cutoff) < 0 || Number(cutoff) > 100) e.cutoffPct = 'Enter a cutoff from 0 to 100.';
     if (!nextSteps.trim()) e.nextSteps = 'Tell shortlisted candidates what happens next.';
     setErrors(e);
-    if (!Object.keys(e).length) setConfirming(true);
+    if (Object.keys(e).length) return;
+    await onRefresh(); // the counts in the confirmation must include tests submitted since this page loaded
+    setConfirming(true);
   };
 
   const publish = async () => {
@@ -218,6 +221,9 @@ function PublishForm({ drive, cutoff, setCutoff, submitted, updating, onCancel, 
           actions={<><button className="btn btn-secondary" onClick={() => setConfirming(false)}>Cancel</button><button className="btn" onClick={publish} disabled={busy}>{updating ? 'Update' : 'Publish'}</button></>}
         >
           <p><b>{willShortlist}</b> candidates will see <b>Shortlisted</b> and <b>{submitted.length - willShortlist}</b> will see <b>Not selected</b>.</p>
+          {notSubmitted > 0 && (
+            <Alert kind="warn"><b>{notSubmitted}</b> candidates have not submitted yet. When they submit, they get their result by the same cutoff.</Alert>
+          )}
           <p>Students can check this on the drive link straight away. You can change or unpublish it later.</p>
         </Modal>
       )}

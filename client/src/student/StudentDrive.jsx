@@ -6,6 +6,7 @@ import Register from './Register.jsx';
 import Instructions from './Instructions.jsx';
 import Exam from './Exam.jsx';
 import Done from './Done.jsx';
+import { exitFullscreen, stopCamera } from './camera.js';
 
 export function StudentShell({ drive, right, children }) {
   return (
@@ -68,6 +69,9 @@ export default function StudentDrive() {
   }, [tokenKey]);
 
   const onSessionLost = useCallback(() => {
+    // The test continues on another device: release this device's camera and full screen.
+    stopCamera();
+    exitFullscreen();
     local.del(tokenKey);
     setToken(null);
     setState(null);

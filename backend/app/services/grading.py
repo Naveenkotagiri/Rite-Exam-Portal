@@ -58,10 +58,17 @@ async def score_attempt(tx: Db, attempt_id: int) -> dict[str, Any]:
     }
 
 
-async def finalize_attempt(tx: Db, attempt_id: int, reason: str) -> bool:
-    """Submits and marks an in-progress attempt. Safe to call concurrently; returns False if nothing changed."""
-    a = await tx.one("SELECT id, status FROM attempts WHERE id = :id FOR UPDATE", id=attempt_id)
-    if not a or a["status"] != "in_progress":
+async def finalize_attempt(tx: Db, attempt_id: int, reason: str, *, only_if_expired: bool = False) -> bool:
+    """Submits and marks an in-progress attempt. Safe to call concurrently; returns False if nothing changed.
+
+    only_if_expired: for the automatic time-up, re-check the deadline under the lock, so time a coordinator
+    added a moment ago is honoured.
+    """
+    a = await tx.one(
+        "SELECT id, status, now() > ends_at + make_interval(secs => :grace) AS expired FROM attempts WHERE id = :id FOR UPDATE",
+        id=attempt_id, grace=settings.grace_seconds,
+    )
+    if not a or a["status"] != "in_progress" or (only_if_expired and not a["expired"]):
         return False
     g = await score_attempt(tx, attempt_id)
     await tx.run(
@@ -71,6 +78,16 @@ async def finalize_attempt(tx: Db, attempt_id: int, reason: str) -> bool:
                   submit_reason = :reason, score = :score, max_score = :max, section_scores = CAST(:sections AS jsonb)
             WHERE id = :id""",
         id=attempt_id, reason=reason, score=g["score"], max=g["max"], sections=json.dumps(g["sections"]),
+    )
+    # Results already published (HR published while this candidate was still writing): apply the published cutoff,
+    # so their result page shows the real outcome instead of "not selected".
+    await tx.run(
+        """UPDATE attempts a
+              SET result_status = CASE WHEN a.max_score > 0 AND a.score * 100.0 / a.max_score >= d.results_cutoff_pct
+                                       THEN 'shortlisted' ELSE 'not_selected' END
+             FROM students st JOIN drives d ON d.id = st.drive_id
+            WHERE a.id = :id AND st.id = a.student_id AND d.results_published_at IS NOT NULL AND NOT a.result_manual""",
+        id=attempt_id,
     )
     await tx.run("INSERT INTO attempt_events (attempt_id, type, detail) VALUES (:id, 'submitted', :reason)", id=attempt_id, reason=reason)
     return True
@@ -93,5 +110,5 @@ async def sweep_expired() -> int:
     )
     for r in rows:
         async with db.transaction() as tx:
-            await finalize_attempt(tx, r["id"], "time_up")
+            await finalize_attempt(tx, r["id"], "time_up", only_if_expired=True)
     return len(rows)

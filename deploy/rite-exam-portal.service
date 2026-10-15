@@ -1,9 +1,10 @@
 # systemd service for the Rite Exam Portal. Install (see DEPLOY.md, Step 6):
-#   sudo cp /opt/rite-exam-portal/deploy/rite-exam-portal.service /etc/systemd/system/
+#   sudo install -m 644 /opt/rite-exam-portal/deploy/rite-exam-portal.service /etc/systemd/system/
 #   sudo systemctl daemon-reload && sudo systemctl enable --now rite-exam-portal
 [Unit]
 Description=Rite Exam Portal
-After=network-online.target postgresql.service
+# Start after PostgreSQL (the unit name differs between Oracle Linux's and PostgreSQL.org's packages).
+After=network-online.target postgresql.service postgresql-15.service postgresql-16.service postgresql-17.service
 Wants=network-online.target
 
 [Service]

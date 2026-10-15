@@ -1,5 +1,6 @@
 """Question papers: exams, sections, reading passages, questions, and Excel import/export."""
 
+import asyncio
 import json
 from typing import Any
 
@@ -305,7 +306,8 @@ async def import_questions(exam_id: str, request: Request, mode: str = "append")
     if await exam_is_locked(exam["id"]):
         raise conflict(LOCKED_MESSAGE)
 
-    rows, errors = parse_questions_workbook(data)
+    # Parsing a large workbook takes a while; do it off the event loop so students on this worker are not held up.
+    rows, errors = await asyncio.to_thread(parse_questions_workbook, data)
     if errors:
         raise bad_request(f"The file has {len(errors)} problem(s). Nothing was imported.", rowErrors=errors[:200])
 
